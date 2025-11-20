@@ -1,6 +1,6 @@
 import streamlit as st
 import random
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # Page configuration
 st.set_page_config(
@@ -13,7 +13,7 @@ st.set_page_config(
 st.markdown("""
 <style>
     .stApp {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
     }
     .chat-message {
         padding: 1.5rem;
@@ -23,12 +23,13 @@ st.markdown("""
         align-items: flex-start;
     }
     .chat-message.user {
-        background-color: #2b313e;
+        background-color: #0f3460;
         color: white;
     }
     .chat-message.bot {
-        background-color: #475063;
+        background-color: #1a1a2e;
         color: white;
+        border: 1px solid #16213e;
     }
     .chat-message .message {
         flex-grow: 1;
@@ -36,6 +37,34 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
+
+# Fake order database for demo
+FAKE_ORDERS = {
+    '#12345': {
+        'status': 'Out for Delivery',
+        'items': 'Wireless Headphones',
+        'eta': 'Today by 6 PM',
+        'location': 'Mombasa Distribution Center'
+    },
+    '#67890': {
+        'status': 'Shipped',
+        'items': 'Running Shoes',
+        'eta': 'Tomorrow',
+        'location': 'Nairobi Hub'
+    },
+    '#11111': {
+        'status': 'Processing',
+        'items': 'Laptop Stand',
+        'eta': '3-5 business days',
+        'location': 'Warehouse'
+    },
+    '#99999': {
+        'status': 'Delivered',
+        'items': 'Phone Case',
+        'eta': 'Delivered on Nov 15',
+        'location': 'Your doorstep'
+    }
+}
 
 # Knowledge Base - FAQ responses
 KNOWLEDGE_BASE = {
@@ -49,11 +78,12 @@ KNOWLEDGE_BASE = {
     },
     'order_tracking': {
         'patterns': ['track order', 'where is my order', 'order status', 'track my package', 
-                     'delivery status', 'when will my order arrive'],
+                     'delivery status', 'when will my order arrive', 'my order', 'my package',
+                     'where', 'track', 'find my order', '#'],
         'responses': [
-            '📦 To track your order, please provide your order number (starting with #). You can find it in your confirmation email.',
-            '🚚 I can help you track your order! Please share your order ID and I\'ll check the status for you.',
-            '📍 To check your delivery status, I\'ll need your order number. It should look like #12345.'
+            '📦 I can help you track your order! Please provide your order number (starting with #).',
+            '🚚 I\'d be happy to check your delivery status! What\'s your order number?',
+            '📍 Sure! Please share your order ID and I\'ll track it for you.'
         ]
     },
     'returns': {
@@ -66,7 +96,7 @@ KNOWLEDGE_BASE = {
     },
     'payment': {
         'patterns': ['payment', 'pay', 'credit card', 'debit card', 'payment method', 
-                     'billing', 'charge', 'transaction failed'],
+                     'billing', 'charge', 'transaction failed' , 'money'],
         'responses': [
             '💳 We accept Credit Cards, Debit Cards, UPI, Net Banking, and Wallets. Is there a specific payment issue you\'re facing?',
             '💵 Payment issues? Please check: 1) Card details are correct, 2) Sufficient balance, 3) Card is enabled for online transactions. Still stuck?',
@@ -94,9 +124,9 @@ KNOWLEDGE_BASE = {
         'patterns': ['contact', 'call', 'email', 'support', 'help', 'phone number', 
                      'customer service', 'reach you'],
         'responses': [
-            '📞 Contact us: Email: support@example.com | Phone: 1-800-SUPPORT (24/7) | Live Chat: Available on website',
-            '💬 Need human support? Email: help@example.com or call 1-800-555-0100. We respond within 2 hours!',
-            '🤝 You can reach our customer service team: Phone: +1-800-HELP | Email: care@example.com | Hours: 24/7'
+            '📞 Contact us: Email: support@chat.com | Phone: 1-800-SUPPORT (24/7) | Live Chat: Available on website',
+            '💬 Need human support? Email: help@chat.com or call 1-800-555-0100. We respond within 2 hours!',
+            '🤝 You can reach our customer service team: Phone: +1-800-HELP | Email: care@chat.com | Hours: 24/7'
         ]
     },
     'products': {
@@ -125,8 +155,30 @@ KNOWLEDGE_BASE = {
     }
 }
 
+def check_order_number(user_input):
+    """Check if input contains an order number and return tracking info"""
+    input_upper = user_input.upper()
+    for order_id in FAKE_ORDERS.keys():
+        if order_id in input_upper:
+            order_info = FAKE_ORDERS[order_id]
+            return f"""📦 **Order Found!** Order {order_id}
+
+**Status:** {order_info['status']} ✅
+**Items:** {order_info['items']}
+**Expected Delivery:** {order_info['eta']}
+**Current Location:** {order_info['location']}
+
+Need anything else? I can help with returns, cancellations, or any other questions!"""
+    return None
+
 def find_best_match(user_input):
     """Find the best matching response based on user input"""
+    
+    # First check if it's an order number
+    order_response = check_order_number(user_input)
+    if order_response:
+        return order_response
+    
     input_lower = user_input.lower().strip()
     
     # Check each category
@@ -135,11 +187,11 @@ def find_best_match(user_input):
             if pattern in input_lower:
                 return random.choice(data['responses'])
     
-    # Fallback responses
+    # Fallback responses with helpful suggestions
     fallbacks = [
-        '🤔 I\'m not sure I understand. Could you rephrase that? Or try asking about: orders, returns, payments, or shipping.',
-        '❓ Hmm, I didn\'t quite get that. I can help with order tracking, returns, payments, shipping, and account issues. What do you need?',
-        '💭 Sorry, I\'m still learning! I can assist with common questions about orders, delivery, refunds, and payments. What would you like to know?'
+        '🤔 I\'m not sure I understand. Could you rephrase that?\n\n💡 I can help with: Order tracking, Returns, Payments, Shipping, Account issues',
+        '❓ Hmm, I didn\'t quite get that. I specialize in:\n• Order tracking\n• Returns & refunds\n• Payment support\n• Shipping information\n• Account help',
+        '💭 I\'m still learning! I can assist with: Orders, Returns, Payments, Shipping, and Account management. What would you like to know?'
     ]
     
     return random.choice(fallbacks)
@@ -149,6 +201,9 @@ if 'messages' not in st.session_state:
     st.session_state.messages = [
         {'role': 'bot', 'content': '👋 Hi! I\'m your customer support assistant. How can I help you today?'}
     ]
+
+if 'input_key' not in st.session_state:
+    st.session_state.input_key = 0
 
 # Header
 st.title('🤖 Customer Support Chatbot')
@@ -160,12 +215,17 @@ with st.sidebar:
     st.header('📊 Bot Information')
     st.info('''
     **Features:**
-    - Order Tracking
-    - Returns & Refunds
-    - Payment Support
-    - Shipping Information
-    - Account Help
-    - Product Queries
+    - 📦 Order Tracking (with real order IDs!)
+    - 🔄 Returns & Refunds
+    - 💳 Payment Support
+    - 🚚 Shipping Information
+    - 👤 Account Help
+    - 🛍️ Product Queries
+    **How to Use:**
+    - Type your questions in the chat box.
+    - Use quick action buttons for common tasks.
+            
+    - Provide order numbers starting with # for tracking.
     ''')
     
     st.markdown('---')
@@ -178,6 +238,7 @@ with st.sidebar:
         st.session_state.messages = [
             {'role': 'bot', 'content': '👋 Hi! I\'m your customer support assistant. How can I help you today?'}
         ]
+        st.session_state.input_key += 1
         st.rerun()
 
 # Display chat messages
@@ -205,8 +266,8 @@ col1, col2, col3, col4 = st.columns(4)
 
 with col1:
     if st.button('📦 Track Order'):
-        st.session_state.messages.append({'role': 'user', 'content': 'Where is my order?'})
-        bot_response = find_best_match('Where is my order?')
+        st.session_state.messages.append({'role': 'user', 'content': 'Track my order #12345'})
+        bot_response = find_best_match('Track my order #12345')
         st.session_state.messages.append({'role': 'bot', 'content': bot_response})
         st.rerun()
 
@@ -231,24 +292,33 @@ with col4:
         st.session_state.messages.append({'role': 'bot', 'content': bot_response})
         st.rerun()
 
-# Chat input
+# Chat input with Enter key support
 st.markdown('---')
-user_input = st.text_input('Type your message here...', key='user_input', placeholder='Ask me anything!')
 
-if st.button('Send 📤') and user_input:
-    # Add user message
-    st.session_state.messages.append({'role': 'user', 'content': user_input})
+# Create a form to handle Enter key
+with st.form(key='chat_form', clear_on_submit=True):
+    user_input = st.text_input('Type your message here...', key=f'user_input_{st.session_state.input_key}', 
+                                placeholder='Ask me anything about your orders, returns, payments, and more!',)
+    submit_button = st.form_submit_button('Send 📤')
     
-    # Get bot response
-    bot_response = find_best_match(user_input)
-    st.session_state.messages.append({'role': 'bot', 'content': bot_response})
-    
-    st.rerun()
+    if submit_button and user_input:
+        # Add user message
+        st.session_state.messages.append({'role': 'user', 'content': user_input})
+        
+        # Get bot response
+        bot_response = find_best_match(user_input)
+        st.session_state.messages.append({'role': 'bot', 'content': bot_response})
+        
+        # Increment key to clear input
+        st.session_state.input_key += 1
+        
+        st.rerun()
 
 # Footer
 st.markdown('---')
 st.markdown('''
 <div style="text-align: center; color: white;">
-    <p>Built with ❤️ using Streamlit | AI-Powered Customer Support</p>
+    <p>Built with  Streamlit | AI-Powered Customer Support</p>
+    <p style="font-size: 0.8em;">💡 This chatbot uses pattern matching. Try asking about orders, returns, payments, or tracking with order numbers!</p>
 </div>
 ''', unsafe_allow_html=True)
