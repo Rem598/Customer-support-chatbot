@@ -1,6 +1,10 @@
 import streamlit as st
-import random
-from datetime import datetime, timedelta
+from groq import Groq
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Page configuration
 st.set_page_config(
@@ -35,8 +39,15 @@ st.markdown("""
         flex-grow: 1;
         padding-left: 1rem;
     }
+    .stTextInput input {
+        background-color: #16213e;
+        color: white;
+    }
 </style>
 """, unsafe_allow_html=True)
+
+# Get API key from environment variable
+GROQ_API_KEY = os.getenv('GROQ_API_KEY')
 
 # Fake order database for demo
 FAKE_ORDERS = {
@@ -66,95 +77,6 @@ FAKE_ORDERS = {
     }
 }
 
-# Knowledge Base - FAQ responses
-KNOWLEDGE_BASE = {
-    'greetings': {
-        'patterns': ['hi', 'hello', 'hey', 'good morning', 'good afternoon', 'good evening', 'greetings'],
-        'responses': [
-            '👋 Hello! How can I assist you today?',
-            '😊 Hi there! What can I help you with?',
-            '🌟 Hey! I\'m here to help. What do you need?'
-        ]
-    },
-    'order_tracking': {
-        'patterns': ['track order', 'where is my order', 'order status', 'track my package', 
-                     'delivery status', 'when will my order arrive', 'my order', 'my package',
-                     'where', 'track', 'find my order', '#'],
-        'responses': [
-            '📦 I can help you track your order! Please provide your order number (starting with #).',
-            '🚚 I\'d be happy to check your delivery status! What\'s your order number?',
-            '📍 Sure! Please share your order ID and I\'ll track it for you.'
-        ]
-    },
-    'returns': {
-        'patterns': ['return', 'refund', 'exchange', 'send back', 'cancel order', 'money back'],
-        'responses': [
-            '🔄 Our return policy allows returns within 30 days of delivery. Items must be unused and in original packaging. Would you like to initiate a return?',
-            '💰 For refunds, please note: Returns are processed within 5-7 business days. You can start a return from your account dashboard.',
-            '↩️ To return an item: 1) Go to Orders, 2) Select the item, 3) Click "Return", 4) Choose reason. Need help with this?'
-        ]
-    },
-    'payment': {
-        'patterns': ['payment', 'pay', 'credit card', 'debit card', 'payment method', 
-                     'billing', 'charge', 'transaction failed' , 'money'],
-        'responses': [
-            '💳 We accept Credit Cards, Debit Cards, UPI, Net Banking, and Wallets. Is there a specific payment issue you\'re facing?',
-            '💵 Payment issues? Please check: 1) Card details are correct, 2) Sufficient balance, 3) Card is enabled for online transactions. Still stuck?',
-            '🔒 All payments are secure and encrypted. If your transaction failed, the amount will be refunded in 5-7 days automatically.'
-        ]
-    },
-    'shipping': {
-        'patterns': ['shipping', 'delivery', 'courier', 'shipping cost', 'free shipping', 
-                     'how long', 'delivery time'],
-        'responses': [
-            '🚀 Standard shipping: 5-7 business days | Express shipping: 2-3 business days. Free shipping on orders above $50!',
-            '📬 Delivery times: Metro cities 3-5 days, Other cities 5-7 days. You\'ll get tracking details via email once shipped.',
-            '🌍 We ship nationwide! Shipping costs start at $5 for standard delivery. Express delivery available for $15.'
-        ]
-    },
-    'account': {
-        'patterns': ['account', 'login', 'password', 'forgot password', 'sign up', 'register', 'profile'],
-        'responses': [
-            '👤 Account issues? Use "Forgot Password" on the login page to reset. Check your email for the reset link.',
-            '🔐 To create an account: Click "Sign Up" → Enter email → Set password → Verify email. Need help with this?',
-            '✉️ Can\'t login? Try: 1) Reset password, 2) Check if email is verified, 3) Clear browser cache. Still having trouble?'
-        ]
-    },
-    'contact': {
-        'patterns': ['contact', 'call', 'email', 'support', 'help', 'phone number', 
-                     'customer service', 'reach you'],
-        'responses': [
-            '📞 Contact us: Email: support@chat.com | Phone: 1-800-SUPPORT (24/7) | Live Chat: Available on website',
-            '💬 Need human support? Email: help@chat.com or call 1-800-555-0100. We respond within 2 hours!',
-            '🤝 You can reach our customer service team: Phone: +1-800-HELP | Email: care@chat.com | Hours: 24/7'
-        ]
-    },
-    'products': {
-        'patterns': ['product', 'item', 'availability', 'in stock', 'out of stock', 'size', 'color'],
-        'responses': [
-            '🛍️ Looking for product information? Please share the product name or link, and I\'ll check availability and details for you.',
-            '📦 To check product availability, please provide the product name or SKU. I can also help with size guides and specifications!',
-            '🎨 Need product details like size, color, or specs? Share the product name and I\'ll get you all the information.'
-        ]
-    },
-    'thanks': {
-        'patterns': ['thank', 'thanks', 'appreciate', 'helpful', 'great'],
-        'responses': [
-            '😊 You\'re welcome! Is there anything else I can help you with?',
-            '🌟 Happy to help! Feel free to ask if you need anything else.',
-            '💙 Glad I could assist! Don\'t hesitate to reach out if you have more questions.'
-        ]
-    },
-    'goodbye': {
-        'patterns': ['bye', 'goodbye', 'see you', 'later', 'exit'],
-        'responses': [
-            '👋 Goodbye! Have a great day! Feel free to return if you need help.',
-            '😊 Take care! Come back anytime you need assistance.',
-            '🌟 See you later! Hope your issue is resolved. Happy shopping!'
-        ]
-    }
-}
-
 def check_order_number(user_input):
     """Check if input contains an order number and return tracking info"""
     input_upper = user_input.upper()
@@ -171,35 +93,71 @@ def check_order_number(user_input):
 Need anything else? I can help with returns, cancellations, or any other questions!"""
     return None
 
-def find_best_match(user_input):
-    """Find the best matching response based on user input"""
+def get_ai_response(user_input, conversation_history):
+    """Get AI-powered response using Groq"""
     
-    # First check if it's an order number
-    order_response = check_order_number(user_input)
-    if order_response:
-        return order_response
+    if not GROQ_API_KEY:
+        return "⚠️ **API Key Missing!**\n\nPlease add your Groq API key to the `.env` file:\n```\nGROQ_API_KEY=your_key_here\n```\n\n🔑 Get your free key at: https://console.groq.com"
     
-    input_lower = user_input.lower().strip()
-    
-    # Check each category
-    for category, data in KNOWLEDGE_BASE.items():
-        for pattern in data['patterns']:
-            if pattern in input_lower:
-                return random.choice(data['responses'])
-    
-    # Fallback responses with helpful suggestions
-    fallbacks = [
-        '🤔 I\'m not sure I understand. Could you rephrase that?\n\n💡 I can help with: Order tracking, Returns, Payments, Shipping, Account issues',
-        '❓ Hmm, I didn\'t quite get that. I specialize in:\n• Order tracking\n• Returns & refunds\n• Payment support\n• Shipping information\n• Account help',
-        '💭 I\'m still learning! I can assist with: Orders, Returns, Payments, Shipping, and Account management. What would you like to know?'
-    ]
-    
-    return random.choice(fallbacks)
+    try:
+        client = Groq(api_key=GROQ_API_KEY)
+        
+        # System prompt with company knowledge
+        system_prompt = """You are a friendly and helpful customer support assistant for an e-commerce company.
+
+COMPANY INFORMATION:
+- Return Policy: 30 days return window, items must be unused and in original packaging
+- Shipping: Standard (5-7 days), Express (2-3 days). Free shipping on orders above $50
+- Payment Methods: Credit Cards, Debit Cards, UPI, Net Banking, Wallets
+- Contact: Email: support@shop.com | Phone: 1-800-SUPPORT (24/7)
+- Refund Processing Time: 5-7 business days
+
+GUIDELINES:
+1. Be friendly, empathetic, and professional
+2. Use emojis to make responses engaging (but don't overdo it)
+3. Keep responses concise but helpful
+4. If you don't know something, admit it and offer to connect them with human support
+5. Always try to resolve the issue or provide next steps
+6. For order tracking, ask for the order number if not provided
+
+RESPONSE STYLE:
+- Start with acknowledging their concern
+- Provide clear, actionable information
+- End with asking if they need more help
+
+Remember: You're here to make customers happy and solve their problems!"""
+
+        # Build messages with conversation history
+        messages = [{"role": "system", "content": system_prompt}]
+        
+        # Add conversation history (last 10 messages for context)
+        for msg in conversation_history[-10:]:
+            messages.append({
+                "role": "user" if msg['role'] == 'user' else "assistant",
+                "content": msg['content']
+            })
+        
+        # Add current user input
+        messages.append({"role": "user", "content": user_input})
+        
+        # Get response from Groq
+        chat_completion = client.chat.completions.create(
+            messages=messages,
+            model="llama-3.3-70b-versatile", 
+            temperature=0.7,
+            max_tokens=500,
+            top_p=1,
+        )
+        
+        return chat_completion.choices[0].message.content
+        
+    except Exception as e:
+        return f"⚠️ **Error:** {str(e)}\n\nPlease check:\n1. Your API key is valid\n2. You have internet connection\n3. Groq service is available"
 
 # Initialize session state
 if 'messages' not in st.session_state:
     st.session_state.messages = [
-        {'role': 'bot', 'content': '👋 Hi! I\'m your customer support assistant. How can I help you today?'}
+        {'role': 'bot', 'content': '👋 Hi! I\'m your AI-powered customer support assistant. How can I help you today?'}
     ]
 
 if 'input_key' not in st.session_state:
@@ -207,39 +165,48 @@ if 'input_key' not in st.session_state:
 
 # Header
 st.title('🤖 Customer Support Chatbot')
-st.markdown('**24/7 Intelligent Support Assistant**')
-st.markdown('---')
+st.markdown('24/7 Intelligent AI-Powered Support Assistant for Your E-Commerce Needs</i>', unsafe_allow_html=True)
+
+# Show API status
+# if GROQ_API_KEY:
+   # st.success('✅ AI Mode Active - Ready to help!')
+#else:
+   # st.error('⚠️ API Key not found. Please add GROQ_API_KEY to your .env file')
+   # st.info('📝 Instructions:\n1. Create a `.env` file\n2. Add: `GROQ_API_KEY=your_key_here`\n3. Get free key: https://console.groq.com')
+
+# st.markdown('---')
 
 # Sidebar
 with st.sidebar:
-    st.header('📊 Bot Information')
+    st.header(' Bot Information')
     st.info('''
     **Features:**
-    - 📦 Order Tracking (with real order IDs!)
+    - 🧠 AI-Powered Responses
+    - 📦 Order Tracking
     - 🔄 Returns & Refunds
     - 💳 Payment Support
     - 🚚 Shipping Information
     - 👤 Account Help
     - 🛍️ Product Queries
-    **How to Use:**
-    - Type your questions in the chat box.
-    - Use quick action buttons for common tasks.
-            
-    - Provide order numbers starting with # for tracking.
+    
     ''')
     
-    st.markdown('---')
-    st.header('📈 Statistics')
-    st.metric('Total Messages', len(st.session_state.messages))
-    st.metric('Bot Responses', len([m for m in st.session_state.messages if m['role'] == 'bot']))
+    # st.markdown('---')
+   # st.header('📈 Statistics')
+    #st.metric('Total Messages', len(st.session_state.messages))
+    #st.metric('Bot Responses', len([m for m in st.session_state.messages if m['role'] == 'bot']))
+    #st.metric('AI Status', 'Active ✅' if GROQ_API_KEY else 'Inactive ❌')
     
-    st.markdown('---')
-    if st.button('🔄 Clear Chat History'):
-        st.session_state.messages = [
-            {'role': 'bot', 'content': '👋 Hi! I\'m your customer support assistant. How can I help you today?'}
-        ]
-        st.session_state.input_key += 1
-        st.rerun()
+    
+
+    
+    # st.markdown('---')
+    # if st.button('🔄 Clear Chat History'):
+     #   st.session_state.messages = [
+       #     {'role': 'bot', 'content': '👋 Hi! I\'m your AI-powered customer support assistant. How can I help you today?'}
+       # ]
+       # st.session_state.input_key += 1
+       # st.rerun()
 
 # Display chat messages
 chat_container = st.container()
@@ -266,59 +233,75 @@ col1, col2, col3, col4 = st.columns(4)
 
 with col1:
     if st.button('📦 Track Order'):
-        st.session_state.messages.append({'role': 'user', 'content': 'Track my order #12345'})
-        bot_response = find_best_match('Track my order #12345')
+        user_msg = 'Track my order #12345'
+        st.session_state.messages.append({'role': 'user', 'content': user_msg})
+        
+        # Check for order number first
+        order_response = check_order_number(user_msg)
+        if order_response:
+            bot_response = order_response
+        else:
+            bot_response = get_ai_response(user_msg, st.session_state.messages)
+        
         st.session_state.messages.append({'role': 'bot', 'content': bot_response})
         st.rerun()
 
 with col2:
     if st.button('🔄 Returns'):
-        st.session_state.messages.append({'role': 'user', 'content': 'How do I return an item?'})
-        bot_response = find_best_match('How do I return an item?')
+        user_msg = 'How do I return an item?'
+        st.session_state.messages.append({'role': 'user', 'content': user_msg})
+        bot_response = get_ai_response(user_msg, st.session_state.messages)
         st.session_state.messages.append({'role': 'bot', 'content': bot_response})
         st.rerun()
 
 with col3:
     if st.button('💳 Payment'):
-        st.session_state.messages.append({'role': 'user', 'content': 'Payment methods'})
-        bot_response = find_best_match('Payment methods')
+        user_msg = 'What payment methods do you accept?'
+        st.session_state.messages.append({'role': 'user', 'content': user_msg})
+        bot_response = get_ai_response(user_msg, st.session_state.messages)
         st.session_state.messages.append({'role': 'bot', 'content': bot_response})
         st.rerun()
 
 with col4:
     if st.button('📞 Contact'):
-        st.session_state.messages.append({'role': 'user', 'content': 'Contact support'})
-        bot_response = find_best_match('Contact support')
+        user_msg = 'How can I contact support?'
+        st.session_state.messages.append({'role': 'user', 'content': user_msg})
+        bot_response = get_ai_response(user_msg, st.session_state.messages)
         st.session_state.messages.append({'role': 'bot', 'content': bot_response})
         st.rerun()
 
-# Chat input with Enter key support
+# Chat input
 st.markdown('---')
 
-# Create a form to handle Enter key
 with st.form(key='chat_form', clear_on_submit=True):
-    user_input = st.text_input('Type your message here...', key=f'user_input_{st.session_state.input_key}', 
-                                placeholder='Ask me anything about your orders, returns, payments, and more!',)
+    user_input = st.text_input(
+        'Type your message here...', 
+        key=f'user_input_{st.session_state.input_key}',
+        placeholder='Ask me anything about orders, returns, payments, and more!'
+    )
     submit_button = st.form_submit_button('Send 📤')
     
     if submit_button and user_input:
         # Add user message
         st.session_state.messages.append({'role': 'user', 'content': user_input})
         
-        # Get bot response
-        bot_response = find_best_match(user_input)
+        # Check for order number first (priority)
+        order_response = check_order_number(user_input)
+        if order_response:
+            bot_response = order_response
+        else:
+            # Get AI response with full conversation history
+            bot_response = get_ai_response(user_input, st.session_state.messages)
+        
         st.session_state.messages.append({'role': 'bot', 'content': bot_response})
-        
-        # Increment key to clear input
         st.session_state.input_key += 1
-        
         st.rerun()
 
 # Footer
 st.markdown('---')
 st.markdown('''
 <div style="text-align: center; color: white;">
-    <p>Built with  Streamlit | AI-Powered Customer Support</p>
-    <p style="font-size: 0.8em;">💡 This chatbot uses pattern matching. Try asking about orders, returns, payments, or tracking with order numbers!</p>
+    <p>🚀 Built with Streamlit + Groq AI | AI-Powered Customer Support</p>
+    <p>© 2025 E-Commerce Inc. All rights reserved.</p>
 </div>
 ''', unsafe_allow_html=True)
