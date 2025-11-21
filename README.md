@@ -33,7 +33,6 @@ This chatbot can handle queries about:
 - 💳 **Payment Issues** - "Payment failed, what should I do?"
 - 🚚 **Shipping Information** - "How long does delivery take?"
 - 👤 **Account Management** - "I forgot my password"
-- 🛍️ **Product Queries** - "Is this item in stock?"
 - 📞 **Contact Information** - "How can I reach customer support?"
 
 ## 🚀 Quick Start
