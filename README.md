@@ -131,37 +131,12 @@ st.markdown("""
 """, unsafe_allow_html=True)
 ```
 
-## 🚀 Deployment
 
-### Deploy to Streamlit Cloud (Free)
 
-1. Push your code to GitHub
-2. Go to [share.streamlit.io](https://share.streamlit.io)
-3. Connect your GitHub repository
-4. Click "Deploy"
 
-### Deploy to Heroku
 
-```bash
-# Create a Procfile
-echo "web: streamlit run chatbot.py --server.port=$PORT" > Procfile
 
-# Deploy
-heroku create your-app-name
-git push heroku main
-```
-
-## 🤝 Contributing
-
-Contributions are welcome! Here's how you can help:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-## 📊 Future Enhancements
+##  Future Enhancements
 
 - [ ] Integration with real customer databases
 - [ ] Machine learning for better intent recognition
