@@ -161,20 +161,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - GitHub: [@Rem598](https://github.com/Rem598)
   
 
-## 🙏 Acknowledgments
-
-- Streamlit team for the amazing framework
-- Inspiration from customer support bots on Amazon, Flipkart, and Zomato
-- Open-source community for continuous support
-
-## 📞 Support
-
-If you have any questions or need help, feel free to:
-- Open an issue on GitHub
-
-
 ---
 
 ⭐ **If you found this project helpful, please give it a star!** ⭐
 
-Made with ❤️ and Python
+
